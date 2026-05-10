@@ -1,6 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { PDFDocument } from 'pdf-lib';
-import type { FileItem } from '@/types';
+import type { FileItem, Page } from '@/types';
 
 // Configure pdf.js worker
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -107,60 +107,65 @@ export async function processFile(file: File): Promise<FileItem[]> {
   throw new Error(`Unsupported file type: ${type || file.name}`);
 }
 
-export async function combineToPdf(items: FileItem[]): Promise<Uint8Array> {
+export async function combineToPdf(pages: Page[]): Promise<Uint8Array> {
   const outputPdf = await PDFDocument.create();
 
-  // Calculate total height: scale each item to PDF_TARGET_WIDTH
-  let totalHeight = 0;
-  const scaledDimensions: { width: number; height: number }[] = [];
+  for (const pageGroup of pages) {
+    const items = pageGroup.items;
+    if (items.length === 0) continue;
 
-  for (const item of items) {
-    const scale = PDF_TARGET_WIDTH / item.width;
-    const scaledHeight = item.height * scale;
-    scaledDimensions.push({ width: PDF_TARGET_WIDTH, height: scaledHeight });
-    totalHeight += scaledHeight;
-  }
+    // Calculate total height: scale each item to PDF_TARGET_WIDTH
+    let totalHeight = 0;
+    const scaledDimensions: { width: number; height: number }[] = [];
 
-  // Create a single tall page
-  const page = outputPdf.addPage([PDF_TARGET_WIDTH, totalHeight]);
+    for (const item of items) {
+      const scale = PDF_TARGET_WIDTH / item.width;
+      const scaledHeight = item.height * scale;
+      scaledDimensions.push({ width: PDF_TARGET_WIDTH, height: scaledHeight });
+      totalHeight += scaledHeight;
+    }
 
-  // Draw items from top to bottom (PDF coordinate system has origin at bottom-left)
-  let yOffset = totalHeight;
+    // Create a page for this group
+    const page = outputPdf.addPage([PDF_TARGET_WIDTH, totalHeight]);
 
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    const dims = scaledDimensions[i];
-    yOffset -= dims.height;
+    // Draw items from top to bottom (PDF coordinate system has origin at bottom-left)
+    let yOffset = totalHeight;
 
-    if (item.type === 'image') {
-      const imageData = item.data.slice(0);
-      let embedded;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const dims = scaledDimensions[i];
+      yOffset -= dims.height;
 
-      // Detect format from the actual data bytes
-      const bytes = new Uint8Array(imageData);
-      if (bytes[0] === 0x89 && bytes[1] === 0x50) {
-        embedded = await outputPdf.embedPng(imageData);
-      } else {
-        embedded = await outputPdf.embedJpg(imageData);
+      if (item.type === 'image') {
+        const imageData = item.data.slice(0);
+        let embedded;
+
+        // Detect format from the actual data bytes
+        const bytes = new Uint8Array(imageData);
+        if (bytes[0] === 0x89 && bytes[1] === 0x50) {
+          embedded = await outputPdf.embedPng(imageData);
+        } else {
+          embedded = await outputPdf.embedJpg(imageData);
+        }
+
+        page.drawImage(embedded, {
+          x: 0,
+          y: yOffset,
+          width: dims.width,
+          height: dims.height,
+        });
+      } else if (item.type === 'pdf-page') {
+        const pageIndex = (item.pageNumber ?? 1) - 1;
+        const srcDoc = await PDFDocument.load(item.data.slice(0));
+        const [embeddedPage] = await outputPdf.embedPdf(srcDoc, [pageIndex]);
+
+        page.drawPage(embeddedPage, {
+          x: 0,
+          y: yOffset,
+          width: dims.width,
+          height: dims.height,
+        });
       }
-
-      page.drawImage(embedded, {
-        x: 0,
-        y: yOffset,
-        width: dims.width,
-        height: dims.height,
-      });
-    } else if (item.type === 'pdf-page') {
-      const pageIndex = (item.pageNumber ?? 1) - 1;
-      const srcDoc = await PDFDocument.load(item.data.slice(0));
-      const [embeddedPage] = await outputPdf.embedPdf(srcDoc, [pageIndex]);
-
-      page.drawPage(embeddedPage, {
-        x: 0,
-        y: yOffset,
-        width: dims.width,
-        height: dims.height,
-      });
     }
   }
 

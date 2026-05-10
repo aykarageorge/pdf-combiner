@@ -9,3 +9,8 @@ export interface FileItem {
   pageNumber?: number; // for multi-page PDFs
   sourceFile?: string; // original filename for PDF pages
 }
+
+export interface Page {
+  id: string; // "page-<uuid>" prefix to disambiguate from item IDs
+  items: FileItem[];
+}
