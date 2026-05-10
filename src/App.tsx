@@ -251,7 +251,7 @@ export default function App() {
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-white">PDF Combiner</h1>
           <p className="text-slate-400 mt-1">
-            Upload images and PDFs, reorder them, and combine into a single PDF.
+            Upload images and multi-page PDFs — each page becomes a separate item you can rearrange, group across pages, and combine into one PDF.
           </p>
         </header>
 
@@ -332,15 +332,17 @@ export default function App() {
               <h3 className="text-lg font-semibold text-white mb-2">Upload Your Files</h3>
               <p className="text-slate-400">
                 Drag and drop your images (JPG, PNG) and PDF files into the
-                upload area, or click to browse your device.
+                upload area. Multi-page PDFs are automatically split — each page
+                becomes its own item you can work with individually.
               </p>
             </article>
             <article className="bg-slate-800/50 rounded-lg p-6">
               <div className="text-blue-500 text-2xl font-bold mb-3">2</div>
               <h3 className="text-lg font-semibold text-white mb-2">Arrange &amp; Group</h3>
               <p className="text-slate-400">
-                Drag items to rearrange them. Add multiple pages and drag items
-                between pages to organize your output exactly how you want.
+                Pick individual pages from different PDFs and mix them with images.
+                Add output pages and drag items between them to control exactly
+                what goes where.
               </p>
             </article>
             <article className="bg-slate-800/50 rounded-lg p-6">
